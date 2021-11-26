@@ -11,6 +11,30 @@ app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
 
 
+@bot.message_handler(commands=['convert_files'])
+def convert_files(message: telebot.types.Message):
+    bot.send_message(message.from_user.id, 'Upload file to convert')
+    bot.register_next_step_handler(message, validate_file)
+
+
+def validate_file(message: telebot.types.Message):
+    bot.send_message(message.from_user.id, message.text)
+    # here we look at file format and
+    # offer formats to be converted
+
+
+@bot.message_handler(lambda text: text in ['text', 'text'])
+def confirm_converting_format(message):
+    # process file and return it to user
+    file = ()
+    process_file(file, message.text)
+
+
+def process_file(file, type):
+    # convert file
+    pass
+
+
 @bot.message_handler(content_types='text')
 def echo(message: telebot.types.Message):
     bot.send_message(message.from_user.id, message.text)
