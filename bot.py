@@ -11,6 +11,49 @@ app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
 
 
+
+@bot.message_handler(commands=['download_from_youtube'])
+def download_video_start(message: telebot.types.Message):
+    bot.send_message(message.from_user.id, 'Enter a videos url')
+
+
+@bot.message_handler(regexp='^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$')
+def download(message: telebot.types.Message):
+    bot.send_message(message.from_user.id, 'Start downloading video' + message.text)
+    ### download logic
+
+
+@bot.message_handler(commands=['translate'])
+def translate_file(message: telebot.types.Message):
+    bot.send_message(message.from_user.id, 'Upload file to translate')
+
+
+
+
+@bot.message_handler(commands=['convert_files'])
+def convert_files(message: telebot.types.Message):
+    bot.send_message(message.from_user.id, 'Upload file to convert')
+    bot.register_next_step_handler(message, validate_file)
+
+
+def validate_file(message: telebot.types.Message):
+    bot.send_message(message.from_user.id, message.text)
+    # here we look at file format and
+    # offer formats to be converted
+
+
+@bot.message_handler(lambda message: message.text in ['png', 'jpeg', 'mp4'])
+def confirm_converting_format(message):
+    # process file and return it to user
+    file = ()
+    convert_file(file, message.text)
+
+
+def convert_file(file, type):
+    # convert file
+    pass
+
+
 @bot.message_handler(content_types='text')
 def echo(message: telebot.types.Message):
     bot.send_message(message.from_user.id, message.text)
