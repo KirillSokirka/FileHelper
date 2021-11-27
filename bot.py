@@ -29,7 +29,6 @@ def translate_file(message: telebot.types.Message):
 
 
 
-
 @bot.message_handler(commands=['convert_files'])
 def convert_files(message: telebot.types.Message):
     bot.send_message(message.from_user.id, 'Upload file to convert')
@@ -42,7 +41,7 @@ def validate_file(message: telebot.types.Message):
     # offer formats to be converted
 
 
-@bot.message_handler(lambda message: message.text in ['png', 'jpeg', 'mp4'])
+@bot.message_handler(func=lambda message: message.text in ['png', 'jpeg', 'mp4'])
 def confirm_converting_format(message):
     # process file and return it to user
     file = ()
