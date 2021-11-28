@@ -1,19 +1,20 @@
-import os
-
-import telebot
-
 from configs.config import BOT_TOKEN, APP_URL
+from Workers.Translator import TextTranslator
+from Models.TranslationDTO import TranslationDTO
 
-from telebot import TeleBot
+import os
+from telebot import TeleBot, types
 from flask import request, Flask
+import requests
 from pytube import YouTube
 
 app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
-
+translator = TextTranslator()
+translation_dto = TranslationDTO
 
 @bot.message_handler(commands=['start'])
-def download_video_start(message: telebot.types.Message):
+def download_video_start(message: types.Message):
     bot.send_message(message.from_user.id, 'Hi!\n'
                                            'I\'ll help you to convert files, download videos and '
                                            'even translate documents\n'
@@ -24,12 +25,12 @@ def download_video_start(message: telebot.types.Message):
 
 
 @bot.message_handler(commands=['download_from_youtube'])
-def download_video_start(message: telebot.types.Message):
+def download_video_start(message: types.Message):
     bot.send_message(message.from_user.id, 'Enter video url')
 
 
 @bot.message_handler(regexp='^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$')
-def validate_youtube_link(message: telebot.types.Message):
+def validate_youtube_link(message: types.Message):
     try:
         YouTube(message.text).check_availability()
     except:
@@ -38,16 +39,16 @@ def validate_youtube_link(message: telebot.types.Message):
         youtube_buttons(message)
 
 
-def youtube_buttons(message: telebot.types.Message):
-    choose_format = telebot.types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
-    button1 = telebot.types.KeyboardButton('Video')
-    button2 = telebot.types.KeyboardButton('Audio')
+def youtube_buttons(message: types.Message):
+    choose_format = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
+    button1 = types.KeyboardButton('Video')
+    button2 = types.KeyboardButton('Audio')
     choose_format.add(button1, button2)
     choice = bot.send_message(message.from_user.id, 'Choose type of downloaded file: ', reply_markup=choose_format)
     bot.register_next_step_handler(choice, download, message.text)
 
 
-def download(message: telebot.types.Message, url):
+def download(message: types.Message, url):
     yt = YouTube(url)
     if message.text.lower() == 'audio':
         video = yt.streams.filter(only_audio=True).first()
@@ -70,17 +71,39 @@ def download(message: telebot.types.Message, url):
 
 
 @bot.message_handler(commands=['translate'])
-def translate_file(message: telebot.types.Message):
+def translate_file(message: types.Message):
     bot.send_message(message.from_user.id, 'Upload file to translate')
+    bot.register_next_step_handler(message, translation_get_filepath)
+
+
+def translation_get_filepath(message: types.Message):
+    if message.content_type != 'document':
+        bot.send_message(message.from_user.id, 'You should upload only files')
+        return
+    telegram_filepath = bot.get_file(message.document.file_id).file_path
+    download_file_from_telegram(telegram_filepath)
+    result, result_filepath = translator.translate_file(telegram_filepath)
+    if result is None:
+        bot.send_message(message.from_user.id, 'File\'s format isn\'t correct')
+        return
+    with open(result_filepath, 'r') as file:
+        bot.send_document(message.from_user.id, file)
+
+
+def download_file_from_telegram(filepath):
+    url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{filepath}'
+    r = requests.get(url, allow_redirects=True)
+    with open('translation_text.txt', 'wb') as f:
+        f.write(r.content)
 
 
 @bot.message_handler(commands=['convert_files'])
-def convert_files(message: telebot.types.Message):
+def convert_files(message: types.Message):
     bot.send_message(message.from_user.id, 'Upload file to convert')
     bot.register_next_step_handler(message, validate_file)
 
 
-def validate_file(message: telebot.types.Message):
+def validate_file(message: types.Message):
     bot.send_message(message.from_user.id, message.text)
     # here we look at file format and
     # offer formats to be converted
@@ -99,14 +122,14 @@ def convert_file(file, type):
 
 
 @bot.message_handler(content_types='text')
-def echo(message: telebot.types.Message):
+def echo(message: types.Message):
     bot.send_message(message.from_user.id, message.text)
 
 
 @app.route('/' + BOT_TOKEN, methods=['POST'])
 def get_message():
     json_string = request.get_data().decode("utf-8")
-    update = telebot.types.Update.de_json(json_string)
+    update = types.Update.de_json(json_string)
     bot.process_new_updates([update])
     return "Ok", 200
 
