@@ -1,6 +1,7 @@
-import os
+from configs.config import TEXT_TO_TRANSLATE
 
-from googletrans import Translator
+import os
+from googletrans import Translator, LANGUAGES
 
 
 class TextTranslator:
@@ -8,18 +9,26 @@ class TextTranslator:
     def __init__(self):
         self.translator = Translator()
 
-    def translate_file(self, _filepath, src_lan=None, dest_lan=None):
-        filepath = _filepath.split('/')[-1]
-        if not TextTranslator.__validate_file(filepath):
-            return False, None
-        with open('result.txt', 'w') as result_file:
-            with open('text.txt', 'r') as file:
-                for line in file:
-                    result_file.write(
-                        self.translator.translate(line, dest='ru').text + '\n'
-                    )
-        return True, 'result.txt'
+    def check_if_language_avaliable_(self, language):
+        if LANGUAGES.get(language):
+            return True
+        return False
 
-    @staticmethod
-    def __validate_file(filepath: str) -> bool:
-        return filepath.lower().endswith('.txt')
+    def translate_file(self, dto):
+        filepath = 'translation_files/'  + dto.file_path.split('/')[-1]
+        with open(filepath, 'w') as result_file:
+            with open(TEXT_TO_TRANSLATE, 'r') as source_file:
+                for line in source_file:
+                    if dto.source_lan:
+                        result_file.write(
+                            self.translator.translate(line,
+                                                  src=dto.source_lan,
+                                                  dest=dto.dest_lan).text + '\n'
+                        )
+                    else:
+                        result_file.write(
+                            self.translator.translate(line,
+                                                      dest=dto.dest_lan).text + '\n'
+                        )
+        os.remove('translation_files/text_to_translate.txt')
+        return filepath
