@@ -15,7 +15,7 @@ class TextTranslator:
         return False
 
     def translate_file(self, dto):
-        filepath = 'translation_files/'  + dto.file_path.split('/')[-1]
+        filepath = dto.file_path.split('/')[-1]
         with open(filepath, 'w') as result_file:
             with open(TEXT_TO_TRANSLATE, 'r') as source_file:
                 for line in source_file:
@@ -30,5 +30,5 @@ class TextTranslator:
                             self.translator.translate(line,
                                                       dest=dto.dest_lan).text + '\n'
                         )
-        os.remove('translation_files/text_to_translate.txt')
+        os.remove('text_to_translate.txt')
         return filepath
