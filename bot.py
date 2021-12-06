@@ -34,7 +34,7 @@ def download_video_start(message: types.Message):
 
 @bot.message_handler(content_types = ["photo"])
 def add_photo(message):
-    if not isinstance(to_pdf.to_list_image.get(message.from_user.id), list):
+    if not isinstance(to_pdf.list_image.get(message.from_user.id), list):
         bot.reply_to(message, "Send /pdf for initialization")
 
         return
