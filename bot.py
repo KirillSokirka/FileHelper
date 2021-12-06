@@ -2,6 +2,7 @@ import configs.config
 from configs.config import BOT_TOKEN, APP_URL, TEXT_TO_TRANSLATE
 from Workers.Translator import TextTranslator
 from Models.TranslationDTO import TranslationDTO
+from Workers.YouTubeDownloader import YouTubeDownloader
 
 import os
 from telebot import TeleBot, types
@@ -13,6 +14,7 @@ app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
 translator = TextTranslator()
 translation_dto = TranslationDTO
+youtube_downloader = YouTubeDownloader()
 
 
 @bot.message_handler(commands=['start'])
@@ -28,48 +30,63 @@ def download_video_start(message: types.Message):
 
 @bot.message_handler(commands=['download_from_youtube'])
 def download_video_start(message: types.Message):
-    bot.send_message(message.from_user.id, 'Enter video url')
+    bot.send_message(message.from_user.id, 'Enter video URL')
 
 
 @bot.message_handler(regexp='^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$')
-def validate_youtube_link(message: types.Message):
-    try:
-        YouTube(message.text).check_availability()
-    except:
-        bot.send_message(message.from_user.id, 'Url is incorrect')
+def get_youtube_link(message: types.Message):
+    youtube_downloader.url = message.text
+    choose_format(message)
+
+
+def choose_format(message: types.Message):
+    format_keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
+    format_keyboard.add(types.KeyboardButton('Video'), types.KeyboardButton('Audio'))
+    choice = bot.send_message(message.from_user.id, 'Choose type of downloaded file: ', reply_markup=format_keyboard)
+    bot.register_next_step_handler(choice, confirm_format)
+
+
+def confirm_format(message: types.Message):
+    if message.text.lower() not in ('video', 'audio'):
+        bot.send_message(message.from_user.id, 'Incorrect input!')
+        bot.register_next_step_handler(message, choose_format)
+        return
+    youtube_downloader.format = message.text.lower()
+    if message.text.lower() == 'video':
+        choose_resolution(message)
     else:
-        youtube_buttons(message)
+        download(message)
 
 
-def youtube_buttons(message: types.Message):
-    choose_format = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
-    button1 = types.KeyboardButton('Video')
-    button2 = types.KeyboardButton('Audio')
-    choose_format.add(button1, button2)
-    choice = bot.send_message(message.from_user.id, 'Choose type of downloaded file: ', reply_markup=choose_format)
-    bot.register_next_step_handler(choice, download, message.text)
+def choose_resolution(message: types.Message):
+    resolution_keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
+    resolution_keyboard.add(types.KeyboardButton('High'), types.KeyboardButton('Low'))
+    choice = bot.send_message(message.from_user.id, 'Choose quality: ', reply_markup=resolution_keyboard)
+    bot.register_next_step_handler(choice, confirm_resolution)
 
 
-def download(message: types.Message, url):
-    yt = YouTube(url)
-    if message.text.lower() == 'audio':
-        video = yt.streams.filter(only_audio=True).first()
-    else:
-        video = yt.streams.get_highest_resolution()
+def confirm_resolution(message: types.Message):
+    if message.text.lower() not in ('high', 'low'):
+        bot.send_message(message.from_user.id, 'Incorrect input!')
+        bot.register_next_step_handler(message, choose_resolution)
+        return
+    youtube_downloader.resolution = message.text.lower()
+    download(message)
+
+
+def download(message: types.Message):
     bot.send_message(message.from_user.id, 'Downloading...')
-    video.download()
-    file_name = video.default_filename
-    if message.text.lower() == 'audio':
-        base, ext = os.path.splitext(file_name)
-        new_name = base + '.mp3'
-        os.rename(file_name, new_name)
-        file_name = new_name
-    if os.path.getsize(file_name) > 2 * 10 ** 9:
-        bot.send_message(message.from_user.id, 'File is too large')
-    else:
-        with open(file_name, 'rb') as file:
+    file_path = ''
+    try:
+        file_path = youtube_downloader.download()
+    except ValueError:
+        bot.send_message(message.from_user.id, 'Something went wrong! Check if URL is correct')
+    except OSError:
+        bot.send_message(message.from_user.id, 'File is too large!')
+    if file_path:
+        with open(file_path, 'rb') as file:
             bot.send_document(message.from_user.id, file)
-    os.remove(file_name)
+        os.remove(file_path)
 
 
 @bot.message_handler(commands=['translate'])
