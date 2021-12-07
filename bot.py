@@ -3,18 +3,22 @@ from configs.config import BOT_TOKEN, APP_URL, TEXT_TO_TRANSLATE
 from Workers.Translator import TextTranslator
 from Models.TranslationDTO import TranslationDTO
 from Workers.YouTubeDownloader import YouTubeDownloader
+from Workers.ToPDFConverter import ToPDFConverter
 
 import os
+from io import BytesIO
 from telebot import TeleBot, types
 from flask import request, Flask
 import requests
 from pytube import YouTube
+from PIL import Image
 
 app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
 translator = TextTranslator()
 translation_dto = TranslationDTO
 youtube_downloader = YouTubeDownloader()
+to_pdf = ToPDFConverter()
 
 
 @bot.message_handler(commands=['start'])
@@ -25,8 +29,50 @@ def download_video_start(message: types.Message):
                                            '/convert_files - choose this command to convert files\n'
                                            '/download_from_youtube - choose this command to '
                                            'download video from youtube\n'
-                                           '/translate - choose this command to translate document(only .txt)')
+                                            '/translate - choose this command to translate document(only .txt)\n'
+                                           '/pdf - choose this command to convert images to pdf format')
 
+
+@bot.message_handler(content_types = ["photo"])
+def add_photo(message):
+    if not isinstance(to_pdf.list_image.get(message.from_user.id), list):
+        bot.reply_to(message, "Send /pdf for initialization")
+
+        return
+
+    if len(to_pdf.list_image[message.from_user.id]) >=50:
+        bot.reply_to(message, "Sorry! Only 50 images can be converted for now")
+        return
+
+    file = bot.get_file(message.photo[1].file_id)
+    downloaded_file = bot.download_file(file.file_path)
+    image = Image.open(BytesIO(downloaded_file))
+
+    to_pdf.list_image[message.from_user.id].append(image)
+    bot.reply_to(message, f"[{len(to_pdf.list_image[message.from_user.id])}] Success add image, send command /toPDF if finish")
+
+@bot.message_handler(commands = ["pdf"])
+def PDF(message):
+    bot.send_message(message.from_user.id, "Get Set Send me images...")
+
+    if not isinstance(to_pdf.list_image.get(message.from_user.id), list):
+        to_pdf.list_image[message.from_user.id] = []
+
+@bot.message_handler(commands = ["toPDF"])
+def FINISH(message):
+    images = to_pdf.list_image.get(message.from_user.id)
+
+    if isinstance(images, list):
+        del to_pdf.list_image[message.from_user.id]
+
+    if not images:
+        bot.send_message(message.from_user.id, "First send me images..")
+        return
+
+    path = str(message.from_user.id) + ".pdf"
+    images[0].save(path, save_all = True, append_images = images[1:])
+    bot.send_document(message.from_user.id, open(path, "rb"), caption = "From BRAWL STARS⭐️")
+    os.remove(path)
 
 @bot.message_handler(commands=['download_from_youtube'])
 def download_video_start(message: types.Message):
