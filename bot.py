@@ -138,7 +138,7 @@ def get_source_lan_from_user(message: types.Message):
         bot.register_next_step_handler(message, choose_source_language)
         return
     translation_dto.source_lan = message.text
-    bot.register_next_step_handler(message, choose_dest_language)
+    choose_dest_language(message)
 
 
 def choose_dest_language(message: types.Message):

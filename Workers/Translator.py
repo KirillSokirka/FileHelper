@@ -17,8 +17,10 @@ class TextTranslator:
     def translate_file(self, dto):
         filepath = dto.file_path.split('/')[-1]
         with open(filepath, 'w') as result_file:
-            with open(TEXT_TO_TRANSLATE, 'r') as source_file:
+            with open(TEXT_TO_TRANSLATE, 'r', encoding='utf-8') as source_file:
                 for line in source_file:
+                    if not line.rstrip():
+                        continue
                     if dto.source_lan:
                         result_file.write(
                             self.translator.translate(line,
