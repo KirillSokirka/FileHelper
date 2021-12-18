@@ -1,9 +1,13 @@
 import configs.config
-from configs.config import BOT_TOKEN, APP_URL, TEXT_TO_TRANSLATE
+from configs.config import BOT_TOKEN, APP_URL, TEXT_TO_TRANSLATE, RESOURCES_PATH
 from Workers.Translator import TextTranslator
 from Models.TranslationDTO import TranslationDTO
 from Workers.YouTubeDownloader import YouTubeDownloader
 from Workers.ToPDFConverter import ToPDFConverter
+from converterextension.src.com.brawlstars.file.converter.utils.FileExtensions import FileExtensions
+from converterextension.src.com.brawlstars.file.converter.utils.FileDownloader import FileDownloader
+from converterextension.src.com.brawlstars.file.converter.workers.ExtendedConverter import ExtendedConverter
+
 
 import os
 from io import BytesIO
@@ -11,6 +15,7 @@ from telebot import TeleBot, types
 from flask import request, Flask
 import requests
 from pytube import YouTube
+from conversiontools import ConversionClient
 from PIL import Image
 
 app = Flask(__name__)
@@ -19,6 +24,7 @@ translator = TextTranslator()
 translation_dto = TranslationDTO
 youtube_downloader = YouTubeDownloader()
 to_pdf = ToPDFConverter()
+convert_file_name = ''
 
 
 @bot.message_handler(commands=['start'])
@@ -220,26 +226,71 @@ def download_file_from_telegram(filepath):
 
 @bot.message_handler(commands=['convert_files'])
 def convert_files(message: types.Message):
-    bot.send_message(message.from_user.id, 'Upload file to convert')
+    supported_extensions = ', '.join(FileExtensions.get_supported_extensions())
+    bot.send_message(message.from_user.id, f'Upload file to convert. Supported input extensions: {supported_extensions}')
     bot.register_next_step_handler(message, validate_file)
 
 
 def validate_file(message: types.Message):
-    bot.send_message(message.from_user.id, message.text)
-    # here we look at file format and
-    # offer formats to be converted
+    file_name = ''
+    if message.content_type == 'document':
+        file_name = bot.get_file(message.document.file_id).file_path
+    elif message.content_type == 'photo':
+        file_name = bot.get_file(message.photo[-1].file_id).file_path
+    elif message.content_type == 'video':
+        file_name = bot.get_file(message.video.file_id).file_path
+    elif message.content_type == 'audio':
+        file_name = bot.get_file(message.audio.file_id).file_path
+
+    extension = file_name.split('.')[-1]
+    if FileExtensions.is_supported(extension):
+        global convert_file_name
+        convert_file_name = file_name
+        format_keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
+        for ext in FileExtensions.get_possible_conversion_for(extension):
+            format_keyboard.add(types.KeyboardButton(ext))
+        choice = bot.send_message(message.from_user.id, 'Select the extension you want to convert to: ',
+                                  reply_markup=format_keyboard)
+        bot.register_next_step_handler(choice, confirm_converting_format)
+    else:
+        bot.send_message(message.from_user.id, f'Sorry, but I cannot convert files with extension = "{extension}"')
 
 
-@bot.message_handler(func=lambda message: message.text in ['png', 'jpeg', 'mp4'])
 def confirm_converting_format(message):
-    # process file and return it to user
-    file = ()
-    convert_file(file, message.text)
+    from_extension = convert_file_name.split('.')[-1]
+    to_extension = message.text.lower()
+    if to_extension in FileExtensions.get_possible_conversion_for(from_extension):
+        url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{convert_file_name}'
+        source = os.path.join(RESOURCES_PATH, convert_file_name)
+        target = source.replace('.' + from_extension, '_converted.' + to_extension)
+        try:
+            FileDownloader.download(url, source)
+            converter = ExtendedConverter(source, target)
+            converter.perform_convert()
+            with open(target, 'rb') as file:
+                bot.send_document(message.from_user.id, file)
+        except Exception as e:
+            bot.send_message(message.from_user.id, 'Oops, something went wrong! ' + str(e))
+        finally:
+            remove_files(source, target)
+    else:
+        bot.send_message(message.from_user.id, 'Unsupported file extension!')
 
 
-def convert_file(file, type):
-    # convert file
-    pass
+def remove_files(*file_names):
+    for file_name in file_names:
+        if os.path.exists(file_name):
+            os.remove(file_name)
+
+
+def download_file_to_convert(file_name):
+    url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_name}'
+    r = requests.get(url, allow_redirects=True)
+
+    if not os.path.exists(os.path.dirname(file_name)):
+        os.makedirs(os.path.dirname(file_name))
+    with open(file_name, 'wb') as f:
+        f.write(r.content)
 
 
 @bot.message_handler(content_types='text')
