@@ -1,10 +1,10 @@
 
-class TranslationDTO:
+class TranslationDto:
 
     def __init__(self):
         self.file_path = ''
-        self.source_lan = ''
-        self.dest_lan = ''
+        self.source_language = ''
+        self.destination_language = ''
 
     @property
     def file_path(self):
@@ -17,22 +17,22 @@ class TranslationDTO:
         self.__file_path = value
 
     @property
-    def source_lan(self):
+    def source_language(self):
         return self.__source_lan
 
-    @source_lan.setter
-    def source_lan(self, value):
+    @source_language.setter
+    def source_language(self, value):
         if not value:
             if not isinstance(value, str):
                 raise TypeError
         self.__source_lan = value
 
     @property
-    def dest_lan(self):
+    def destination_language(self):
         return self.__dest_lan
 
-    @dest_lan.setter
-    def dest_lan(self, value):
+    @destination_language.setter
+    def destination_language(self, value):
         if not isinstance(value, str):
             raise TypeError
         self.__dest_lan = value
