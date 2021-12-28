@@ -13,9 +13,6 @@ import os
 from io import BytesIO
 from telebot import TeleBot, types
 from flask import request, Flask
-import requests
-from pytube import YouTube
-from conversiontools import ConversionClient
 from PIL import Image
 
 app = Flask(__name__)
