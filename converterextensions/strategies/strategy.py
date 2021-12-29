@@ -2,7 +2,6 @@ import pypandoc
 import subprocess
 
 from PIL import Image
-from docx2pdf import convert
 from json import load
 from dicttoxml import dicttoxml
 from xml.dom.minidom import parseString
@@ -19,12 +18,14 @@ class AbstractStrategy:
 
 class DocxToPdfStrategy(AbstractStrategy):
     def convert(self, source: str, target: str):
-        cmd = 'libreoffice --convert-to pdf'.split() + [source]
+        out_dir = ['/'.join(target.split('/')[:-1])]
+        cmd = 'libreoffice --convert-to pdf --outdir'.split() + out_dir + [source]
         p = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
         p.wait(timeout=10)
         stdout, stderr = p.communicate()
         if stderr:
             raise subprocess.SubprocessError(stderr)
+        os.rename(source.replace('.docx', '.pdf'), target)
 
 
 class DocxToTxtStrategy(AbstractStrategy):
