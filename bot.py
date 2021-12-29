@@ -1,24 +1,22 @@
 from configs.config import BOT_TOKEN, TEXT_TO_TRANSLATE, RESOURCES_PATH, APP_URL
-from converterextensions.utils.file_downloader import FileDownloader
+from converterextensions.utils.file_downloader import FileManager
 from converterextensions.utils.file_extension import FileExtensions
 from converterextensions.workers.converter import ExtendedConverter
-from workers.Translator import TextTranslator
-from models.TranslationDTO import TranslationDTO
-from workers.YouTubeDownloader import YouTubeDownloader
-from workers.ToPDFConverter import ToPDFConverter
-
+from workers.text_translator import TextTranslator
+from dto.translation_dto import TranslationDto
+from workers.youtube_downloader import YouTubeDownloader
+from workers.pdf_converter import ToPDFConverter
 
 import os
 from io import BytesIO
 from telebot import TeleBot, types
 from flask import request, Flask
-import requests
 from PIL import Image
 
 app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
 translator = TextTranslator()
-translation_dto = TranslationDTO
+translation_dto = TranslationDto
 youtube_downloader = YouTubeDownloader()
 to_pdf = ToPDFConverter()
 convert_file_name = ''
@@ -52,7 +50,8 @@ def add_photo(message):
     image = Image.open(BytesIO(downloaded_file))
 
     to_pdf.list_image[message.from_user.id].append(image)
-    bot.reply_to(message, f"[{len(to_pdf.list_image[message.from_user.id])}] Success add image, send command /toPDF if finish")
+    bot.reply_to(message,
+                 f"[{len(to_pdf.list_image[message.from_user.id])}] Success add image, send command /toPDF if finish")
 
 
 @bot.message_handler(commands=["pdf"])
@@ -75,9 +74,9 @@ def FINISH(message):
         return
 
     path = str(message.from_user.id) + ".pdf"
-    images[0].save(path, save_all = True, append_images = images[1:])
-    bot.send_document(message.from_user.id, open(path, "rb"), caption = "From BRAWL STARS⭐️")
-    os.remove(path)
+    images[0].save(path, save_all=True, append_images=images[1:])
+    bot.send_document(message.from_user.id, open(path, "rb"), caption="From BRAWL STARS⭐️")
+    FileManager.remove(path)
 
 
 @bot.message_handler(commands=['download_from_youtube'])
@@ -138,7 +137,7 @@ def download(message: types.Message):
     if file_path:
         with open(file_path, 'rb') as file:
             bot.send_document(message.from_user.id, file)
-        os.remove(file_path)
+        FileManager.remove(file_path)
 
 
 @bot.message_handler(commands=['translate'])
@@ -150,7 +149,9 @@ def translate_file(message: types.Message):
 def translation_get_filepath(message: types.Message):
     if message.content_type != 'document':
         bot.send_message(message.from_user.id, 'You should upload only files')
+        bot.register_next_step_handler(message, translate_file)
         return
+    translation_dto.init_name = message.text
     temp = bot.get_file(message.document.file_id).file_path
     if not temp.lower().endswith('.txt'):
         bot.send_message(message.from_user.id, 'File\'s format isn\'t correct')
@@ -177,7 +178,7 @@ def confirm_source_language(answer: types.Message):
         bot.register_next_step_handler(answer, choose_source_language)
         return
     if answer.text == 'Skip':
-        translation_dto.source_lan = None
+        translation_dto.source_language = None
         choose_dest_language(answer)
     else:
         source_lan = bot.send_message(answer.from_user.id, 'Enter a source language (in this format \'en\')')
@@ -185,11 +186,11 @@ def confirm_source_language(answer: types.Message):
 
 
 def get_source_lan_from_user(message: types.Message):
-    if not translator.check_if_language_avaliable_(message.text):
+    if not TextTranslator.check_language(message.text):
         bot.send_message(message.from_user.id, "This language isn\'t available")
         bot.register_next_step_handler(message, choose_source_language)
         return
-    translation_dto.source_lan = message.text
+    translation_dto.source_language = message.text
     choose_dest_language(message)
 
 
@@ -200,34 +201,29 @@ def choose_dest_language(message: types.Message):
 
 
 def confirm_dest_language(message: types.Message):
-    if not translator.check_if_language_avaliable_(message.text):
+    if not translator.check_language(message.text):
         bot.send_message(message.from_user.id, "This language isn\'t available")
         bot.register_next_step_handler(message, choose_dest_language)
         return
-    translation_dto.dest_lan = message.text
+    translation_dto.destination_language = message.text
     translation_process_file(message.from_user.id)
 
 
 def translation_process_file(user_id):
-    download_file_from_telegram(translation_dto.file_path)
-    result_filepath = translator.translate_file(translation_dto)
+    url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{translation_dto.file_path}'
+    target_file = os.path.join(RESOURCES_PATH, TEXT_TO_TRANSLATE)
+    FileManager.download(url, target_file)
+    result_filepath = translator.translate_file(translation_dto, target_file)
     with open(result_filepath, 'r') as file:
         bot.send_document(user_id, file)
-    os.remove(result_filepath)
-
-
-def download_file_from_telegram(filepath):
-    url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{filepath}'
-    r = requests.get(url, allow_redirects=True)
-
-    with open(TEXT_TO_TRANSLATE, 'wb') as f:
-        f.write(r.content)
+    FileManager.remove(result_filepath)
 
 
 @bot.message_handler(commands=['convert_files'])
 def convert_files(message: types.Message):
     supported_extensions = ', '.join(FileExtensions.get_supported_extensions())
-    bot.send_message(message.from_user.id, f'Upload file to convert. Supported input extensions: {supported_extensions}')
+    bot.send_message(message.from_user.id,
+                     f'Upload file to convert. Supported input extensions: {supported_extensions}')
     bot.register_next_step_handler(message, validate_file)
 
 
@@ -264,7 +260,7 @@ def confirm_converting_format(message):
         source = os.path.join(RESOURCES_PATH, convert_file_name)
         target = source.replace('.' + from_extension, '_converted.' + to_extension)
         try:
-            FileDownloader.download(url, source)
+            FileManager.download(url, source)
             converter = ExtendedConverter(source, target)
             converter.perform_convert()
             with open(target, 'rb') as file:
@@ -272,25 +268,9 @@ def confirm_converting_format(message):
         except Exception as e:
             bot.send_message(message.from_user.id, 'Oops, something went wrong! ' + str(e))
         finally:
-            remove_files(source, target)
+            FileManager.remove(source, target)
     else:
         bot.send_message(message.from_user.id, 'Unsupported file extension!')
-
-
-def remove_files(*file_names):
-    for file_name in file_names:
-        if os.path.exists(file_name):
-            os.remove(file_name)
-
-
-def download_file_to_convert(file_name):
-    url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_name}'
-    r = requests.get(url, allow_redirects=True)
-
-    if not os.path.exists(os.path.dirname(file_name)):
-        os.makedirs(os.path.dirname(file_name))
-    with open(file_name, 'wb') as f:
-        f.write(r.content)
 
 
 @bot.message_handler(content_types='text')
