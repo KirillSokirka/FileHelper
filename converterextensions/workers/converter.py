@@ -32,5 +32,5 @@ class ExtendedConverter:
 
     def perform_convert(self):
         conversion_name = self.source_file_name.split('.')[-1] + '_to_' + self.__target_file_name.split('.')[-1]
-        conversion_strategy = StrategyManager.get_strategy_for(conversion_name)
+        conversion_strategy = StrategyManager.get_strategy_for(conversion_name.lower())
         conversion_strategy.convert(source=self.source_file_name, target=self.target_file_name)
