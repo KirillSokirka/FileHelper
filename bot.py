@@ -1,4 +1,3 @@
-import configs.config
 from configs.config import BOT_TOKEN, APP_URL, TEXT_TO_TRANSLATE, RESOURCES_PATH
 from workers.translator import TextTranslator
 from models.translation_dto import TranslationDto

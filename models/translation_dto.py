@@ -10,10 +10,6 @@ class TranslationDto:
         self.source_language = ''
         self.destination_language = ''
 
-    """
-        Property that we get from telegram
-        This is a path of file, that we should translate
-    """
     @property
     def file_path(self):
         return self.__file_path
@@ -24,10 +20,7 @@ class TranslationDto:
             raise TypeError
         self.__file_path = value
 
-    """
-        Source language of text
-        This can be set by user or can be skipped
-    """
+
     @property
     def source_language(self):
         return self.__source_lan
@@ -39,9 +32,7 @@ class TranslationDto:
                 raise TypeError
         self.__source_lan = value
 
-    """
-        Destination language of the text        
-    """
+
     @property
     def destination_language(self):
         return self.__dest_lan
