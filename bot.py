@@ -237,14 +237,15 @@ def confirm_dest_language(message: types.Message):
 
 
 def translation_process_file(user_id):
-
-    url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{translation_dto.file_path}'
-    target_file = os.path.join(RESOURCES_PATH, TEXT_TO_TRANSLATE)
-    FileManager.download(url, target_file)
-    result_filepath = translator.translate_file(translation_dto, target_file)
-    with open(result_filepath, 'r') as file:
-        bot.send_document(user_id, file)
-    FileManager.remove(result_filepath)
+    try:
+        url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{translation_dto.file_path}'
+        target_file = os.path.join(RESOURCES_PATH, TEXT_TO_TRANSLATE)
+        FileManager.download(url, target_file)
+        result_filepath = translator.translate_file(translation_dto, target_file)
+        with open(result_filepath, 'r') as file:
+            bot.send_document(user_id, file)
+    except Exception as e:
+        bot.send_message(user_id, "Oops something went wrong")
 
 
 @bot.message_handler(commands=['convert_files'])
