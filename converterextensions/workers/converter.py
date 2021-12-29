@@ -1,7 +1,6 @@
-from converterextension.src.com.brawlstars.file.converter.utils.FileExtensions import FileExtensions
-from converterextension.src.com.brawlstars.file.converter.strategies.StrategyManager import StrategyManager
-
 import os
+
+from converterextensions.strategies.manager import StrategyManager
 
 
 class ExtendedConverter:

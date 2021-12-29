@@ -1,8 +1,6 @@
 import requests
 import os
 
-from configs import config
-
 
 class FileDownloader:
     @staticmethod

@@ -1,12 +1,11 @@
-import configs.config
-from configs.config import BOT_TOKEN, APP_URL, TEXT_TO_TRANSLATE, RESOURCES_PATH
-from Workers.Translator import TextTranslator
-from Models.TranslationDTO import TranslationDTO
-from Workers.YouTubeDownloader import YouTubeDownloader
-from Workers.ToPDFConverter import ToPDFConverter
-from converterextension.src.com.brawlstars.file.converter.utils.FileExtensions import FileExtensions
-from converterextension.src.com.brawlstars.file.converter.utils.FileDownloader import FileDownloader
-from converterextension.src.com.brawlstars.file.converter.workers.ExtendedConverter import ExtendedConverter
+from configs.config import BOT_TOKEN, TEXT_TO_TRANSLATE, RESOURCES_PATH, APP_URL
+from converterextensions.utils.file_downloader import FileDownloader
+from converterextensions.utils.file_extension import FileExtensions
+from converterextensions.workers.converter import ExtendedConverter
+from workers.Translator import TextTranslator
+from models.TranslationDTO import TranslationDTO
+from workers.YouTubeDownloader import YouTubeDownloader
+from workers.ToPDFConverter import ToPDFConverter
 
 
 import os
@@ -14,8 +13,6 @@ from io import BytesIO
 from telebot import TeleBot, types
 from flask import request, Flask
 import requests
-from pytube import YouTube
-from conversiontools import ConversionClient
 from PIL import Image
 
 app = Flask(__name__)
@@ -35,18 +32,18 @@ def download_video_start(message: types.Message):
                                            '/convert_files - choose this command to convert files\n'
                                            '/download_from_youtube - choose this command to '
                                            'download video from youtube\n'
-                                            '/translate - choose this command to translate document(only .txt)\n'
+                                           '/translate - choose this command to translate document(only .txt)\n'
                                            '/pdf - choose this command to convert images to pdf format')
 
 
-@bot.message_handler(content_types = ["photo"])
+@bot.message_handler(content_types=["photo"])
 def add_photo(message):
     if not isinstance(to_pdf.list_image.get(message.from_user.id), list):
         bot.reply_to(message, "Send /pdf for initialization")
 
         return
 
-    if len(to_pdf.list_image[message.from_user.id]) >=50:
+    if len(to_pdf.list_image[message.from_user.id]) >= 50:
         bot.reply_to(message, "Sorry! Only 50 images can be converted for now")
         return
 
@@ -57,14 +54,16 @@ def add_photo(message):
     to_pdf.list_image[message.from_user.id].append(image)
     bot.reply_to(message, f"[{len(to_pdf.list_image[message.from_user.id])}] Success add image, send command /toPDF if finish")
 
-@bot.message_handler(commands = ["pdf"])
+
+@bot.message_handler(commands=["pdf"])
 def PDF(message):
     bot.send_message(message.from_user.id, "Get Set Send me images...")
 
     if not isinstance(to_pdf.list_image.get(message.from_user.id), list):
         to_pdf.list_image[message.from_user.id] = []
 
-@bot.message_handler(commands = ["toPDF"])
+
+@bot.message_handler(commands=["toPDF"])
 def FINISH(message):
     images = to_pdf.list_image.get(message.from_user.id)
 
@@ -79,6 +78,7 @@ def FINISH(message):
     images[0].save(path, save_all = True, append_images = images[1:])
     bot.send_document(message.from_user.id, open(path, "rb"), caption = "From BRAWL STARS⭐️")
     os.remove(path)
+
 
 @bot.message_handler(commands=['download_from_youtube'])
 def download_video_start(message: types.Message):
