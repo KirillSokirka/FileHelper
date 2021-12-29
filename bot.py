@@ -1,11 +1,13 @@
+import requests
+
 from configs.config import BOT_TOKEN, TEXT_TO_TRANSLATE, RESOURCES_PATH, APP_URL
 from converterextensions.utils.file_downloader import FileManager
 from converterextensions.utils.file_extension import FileExtensions
 from converterextensions.workers.converter import ExtendedConverter
 from workers.text_translator import TextTranslator
-from dto.translation_dto import TranslationDto
+from dtos.translation_dto import TranslationDto
 from workers.youtube_downloader import YouTubeDownloader
-from workers.pdf_converter import ToPDFConverter
+from workers.pdf_converter import PdfConverter
 
 import os
 from io import BytesIO
@@ -18,7 +20,7 @@ bot = TeleBot(BOT_TOKEN)
 translator = TextTranslator()
 translation_dto = TranslationDto
 youtube_downloader = YouTubeDownloader()
-to_pdf = ToPDFConverter()
+pdf_converter = PdfConverter()
 convert_file_name = ''
 
 
@@ -34,47 +36,40 @@ def download_video_start(message: types.Message):
                                            '/pdf - choose this command to convert images to pdf format')
 
 
+@bot.message_handler(commands=["pdf"])
+def pdf_conversion(message):
+    bot.send_message(message.from_user.id, "Send me a set of images,\n"
+                                           "which u want to convert to pdf set...")
+
+
 @bot.message_handler(content_types=["photo"])
-def add_photo(message):
-    if not isinstance(to_pdf.list_image.get(message.from_user.id), list):
-        bot.reply_to(message, "Send /pdf for initialization")
-
-        return
-
-    if len(to_pdf.list_image[message.from_user.id]) >= 50:
+def add_photo(message : types.Message):
+    if len(pdf_converter.images) >= 50:
         bot.reply_to(message, "Sorry! Only 50 images can be converted for now")
         return
-
-    file = bot.get_file(message.photo[1].file_id)
-    downloaded_file = bot.download_file(file.file_path)
-    image = Image.open(BytesIO(downloaded_file))
-
-    to_pdf.list_image[message.from_user.id].append(image)
+    download_photos(message.photo, message.from_user.id)
     bot.reply_to(message,
-                 f"[{len(to_pdf.list_image[message.from_user.id])}] Success add image, send command /toPDF if finish")
+                 f"Success add image, send command /convert if finish")
 
 
-@bot.message_handler(commands=["pdf"])
-def PDF(message):
-    bot.send_message(message.from_user.id, "Get Set Send me images...")
+def download_photos(photos, id):
+    file_path = bot.get_file(photos[-1].file_id).file_path
+    file = bot.download_file(file_path)
+    image_to_append = Image.open(BytesIO(file))
+    dest = os.path.join(RESOURCES_PATH, str(id) + ".jpg")
+    if os.path.exists(dest):
+        existed_image = Image.open(dest)
+        new_image = Image.new('RGB', (existed_image.width, image_to_append.height + existed_image.height))
+        new_image.paste(existed_image, (0,0))
+        new_image.paste(image_to_append, (0, existed_image.height))
+        new_image.save(dest)
+    else:
+        image_to_append.save(dest)
 
-    if not isinstance(to_pdf.list_image.get(message.from_user.id), list):
-        to_pdf.list_image[message.from_user.id] = []
 
-
-@bot.message_handler(commands=["toPDF"])
-def FINISH(message):
-    images = to_pdf.list_image.get(message.from_user.id)
-
-    if isinstance(images, list):
-        del to_pdf.list_image[message.from_user.id]
-
-    if not images:
-        bot.send_message(message.from_user.id, "First send me images..")
-        return
-
-    path = str(message.from_user.id) + ".pdf"
-    images[0].save(path, save_all=True, append_images=images[1:])
+@bot.message_handler(commands=["convert"])
+def finish(message):
+    path = os.path.join(RESOURCES_PATH, str(id) + ".pdf")
     bot.send_document(message.from_user.id, open(path, "rb"), caption="From BRAWL STARS⭐️")
     FileManager.remove(path)
 
@@ -106,7 +101,7 @@ def confirm_format(message: types.Message):
     if message.text.lower() == 'video':
         choose_resolution(message)
     else:
-        download(message)
+        download_from_youtube(message)
 
 
 def choose_resolution(message: types.Message):
@@ -122,10 +117,10 @@ def confirm_resolution(message: types.Message):
         bot.register_next_step_handler(message, choose_resolution)
         return
     youtube_downloader.resolution = message.text.lower()
-    download(message)
+    download_from_youtube(message)
 
 
-def download(message: types.Message):
+def download_from_youtube(message: types.Message):
     bot.send_message(message.from_user.id, 'Downloading...')
     file_path = ''
     try:
