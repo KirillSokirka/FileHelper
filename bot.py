@@ -1,17 +1,19 @@
-from configs.config import BOT_TOKEN, APP_URL, TEXT_TO_TRANSLATE, RESOURCES_PATH
-from workers.translator import TextTranslator
-from models.translation_dto import TranslationDto
-from workers.youtube_downloader import YouTubeDownloader
-from workers.pdf_converter import ToPDFConverter
-from converterextension.src.com.brawlstars.file.converter.utils.file_extensions import FileExtensions
-from converterextension.src.com.brawlstars.file.converter.utils.file_manager import FileManager
-from converterextension.src.com.brawlstars.file.converter.workers.extended_converter import ExtendedConverter
+from configs.config import BOT_TOKEN, TEXT_TO_TRANSLATE, RESOURCES_PATH, APP_URL
+from converterextensions.utils.file_downloader import FileDownloader
+from converterextensions.utils.file_extension import FileExtensions
+from converterextensions.workers.converter import ExtendedConverter
+from workers.Translator import TextTranslator
+from models.TranslationDTO import TranslationDTO
+from workers.YouTubeDownloader import YouTubeDownloader
+from workers.ToPDFConverter import ToPDFConverter
+
 
 
 import os
 from io import BytesIO
 from telebot import TeleBot, types
 from flask import request, Flask
+import requests
 from PIL import Image
 
 app = Flask(__name__)
@@ -31,18 +33,18 @@ def download_video_start(message: types.Message):
                                            '/convert_files - choose this command to convert files\n'
                                            '/download_from_youtube - choose this command to '
                                            'download video from youtube\n'
-                                            '/translate - choose this command to translate document(only .txt)\n'
+                                           '/translate - choose this command to translate document(only .txt)\n'
                                            '/pdf - choose this command to convert images to pdf format')
 
 
-@bot.message_handler(content_types = ["photo"])
+@bot.message_handler(content_types=["photo"])
 def add_photo(message):
     if not isinstance(to_pdf.list_image.get(message.from_user.id), list):
         bot.reply_to(message, "Send /pdf for initialization")
 
         return
 
-    if len(to_pdf.list_image[message.from_user.id]) >=50:
+    if len(to_pdf.list_image[message.from_user.id]) >= 50:
         bot.reply_to(message, "Sorry! Only 50 images can be converted for now")
         return
 
@@ -62,7 +64,7 @@ def PDF(message):
         to_pdf.list_image[message.from_user.id] = []
 
 
-@bot.message_handler(commands = ["toPDF"])
+@bot.message_handler(commands=["toPDF"])
 def FINISH(message):
     images = to_pdf.list_image.get(message.from_user.id)
 
@@ -77,6 +79,7 @@ def FINISH(message):
     images[0].save(path, save_all = True, append_images = images[1:])
     bot.send_document(message.from_user.id, open(path, "rb"), caption = "From BRAWL STARS⭐️")
     FileManager.remove_files(path)
+
 
 
 @bot.message_handler(commands=['download_from_youtube'])
@@ -290,6 +293,14 @@ def webhook():
     bot.remove_webhook()
     bot.set_webhook(url=APP_URL)
     return "Ok", 200
+
+
+def main():
+    if os.getenv('Heroku'):
+        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    else:
+        bot.remove_webhook()
+        bot.polling(none_stop=True)
 
 
 if __name__ == '__main__':
