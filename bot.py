@@ -1,19 +1,16 @@
 from configs.config import BOT_TOKEN, TEXT_TO_TRANSLATE, RESOURCES_PATH, APP_URL
-from converterextensions.utils.file_downloader import FileDownloader
+from converterextensions.utils.file_downloader import FileManager
 from converterextensions.utils.file_extension import FileExtensions
 from converterextensions.workers.converter import ExtendedConverter
-from workers.Translator import TextTranslator
-from models.TranslationDTO import TranslationDTO
-from workers.YouTubeDownloader import YouTubeDownloader
-from workers.ToPDFConverter import ToPDFConverter
-
-
+from workers.text_translator import TextTranslator
+from dto.translation_dto import TranslationDto
+from workers.youtube_downloader import YouTubeDownloader
+from workers.pdf_converter import ToPDFConverter
 
 import os
 from io import BytesIO
 from telebot import TeleBot, types
 from flask import request, Flask
-import requests
 from PIL import Image
 
 app = Flask(__name__)
@@ -53,10 +50,11 @@ def add_photo(message):
     image = Image.open(BytesIO(downloaded_file))
 
     to_pdf.list_image[message.from_user.id].append(image)
-    bot.reply_to(message, f"[{len(to_pdf.list_image[message.from_user.id])}] Success add image, send command /toPDF if finish")
+    bot.reply_to(message,
+                 f"[{len(to_pdf.list_image[message.from_user.id])}] Success add image, send command /toPDF if finish")
 
 
-@bot.message_handler(commands = ["pdf"])
+@bot.message_handler(commands=["pdf"])
 def PDF(message):
     bot.send_message(message.from_user.id, "Get Set Send me images...")
 
@@ -76,10 +74,9 @@ def FINISH(message):
         return
 
     path = str(message.from_user.id) + ".pdf"
-    images[0].save(path, save_all = True, append_images = images[1:])
-    bot.send_document(message.from_user.id, open(path, "rb"), caption = "From BRAWL STARS⭐️")
-    FileManager.remove_files(path)
-
+    images[0].save(path, save_all=True, append_images=images[1:])
+    bot.send_document(message.from_user.id, open(path, "rb"), caption="From BRAWL STARS⭐️")
+    FileManager.remove(path)
 
 
 @bot.message_handler(commands=['download_from_youtube'])
@@ -140,7 +137,7 @@ def download(message: types.Message):
     if file_path:
         with open(file_path, 'rb') as file:
             bot.send_document(message.from_user.id, file)
-        FileManager.remove_files(file_path)
+        FileManager.remove(file_path)
 
 
 @bot.message_handler(commands=['translate'])
@@ -189,7 +186,7 @@ def confirm_source_language(answer: types.Message):
 
 
 def get_source_lan_from_user(message: types.Message):
-    if not TextTranslator.check_if_language_available(message.text):
+    if not TextTranslator.check_language(message.text):
         bot.send_message(message.from_user.id, "This language isn\'t available")
         bot.register_next_step_handler(message, choose_source_language)
         return
@@ -204,7 +201,7 @@ def choose_dest_language(message: types.Message):
 
 
 def confirm_dest_language(message: types.Message):
-    if not translator.check_if_language_available(message.text):
+    if not translator.check_language(message.text):
         bot.send_message(message.from_user.id, "This language isn\'t available")
         bot.register_next_step_handler(message, choose_dest_language)
         return
@@ -219,13 +216,14 @@ def translation_process_file(user_id):
     result_filepath = translator.translate_file(translation_dto, target_file)
     with open(result_filepath, 'r') as file:
         bot.send_document(user_id, file)
-    FileManager.remove_files(result_filepath)
+    FileManager.remove(result_filepath)
 
 
 @bot.message_handler(commands=['convert_files'])
 def convert_files(message: types.Message):
     supported_extensions = ', '.join(FileExtensions.get_supported_extensions())
-    bot.send_message(message.from_user.id, f'Upload file to convert. Supported input extensions: {supported_extensions}')
+    bot.send_message(message.from_user.id,
+                     f'Upload file to convert. Supported input extensions: {supported_extensions}')
     bot.register_next_step_handler(message, validate_file)
 
 
@@ -270,7 +268,7 @@ def confirm_converting_format(message):
         except Exception as e:
             bot.send_message(message.from_user.id, 'Oops, something went wrong! ' + str(e))
         finally:
-            FileManager.remove_files(source, target)
+            FileManager.remove(source, target)
     else:
         bot.send_message(message.from_user.id, 'Unsupported file extension!')
 
