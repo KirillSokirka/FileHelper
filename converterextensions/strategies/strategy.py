@@ -71,7 +71,8 @@ class Mp4ToMp3Strategy(AbstractStrategy):
 class PngToJpgStrategy(AbstractStrategy):
     def convert(self, source, target):
         image = Image.open(source)
-        image.save(target)
+        rgb_image = image.convert('RGB')
+        rgb_image.save(target)
 
 
 class RawToMp3Strategy(AbstractStrategy):
@@ -104,3 +105,12 @@ class XmlToJsonStrategy(AbstractStrategy):
         with open(source, 'r') as source_file:
             dict_data = parse(source_file.read())
         dump(dict_data, target, indent=4)
+
+
+class ImagesToPdfStrategy(AbstractStrategy):
+    def convert(self, source, target):
+        images = []
+        for image_source in source:
+            image = Image.open(image_source)
+            images.append(image.convert('RGB'))
+        images[0].save(target, save_all=True, append_images=images[1:])

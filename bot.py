@@ -1,27 +1,25 @@
 import requests
 
 from configs.config import BOT_TOKEN, TEXT_TO_TRANSLATE, RESOURCES_PATH, APP_URL
+from converterextensions.strategies.manager import StrategyManager
 from converterextensions.utils.file_downloader import FileManager
 from converterextensions.utils.file_extension import FileExtensions
 from converterextensions.workers.converter import ExtendedConverter
 from workers.text_translator import TextTranslator
 from dtos.translation_dto import TranslationDto
 from workers.youtube_downloader import YouTubeDownloader
-from workers.pdf_converter import PdfConverter
 
 import os
-from io import BytesIO
 from telebot import TeleBot, types
 from flask import request, Flask
-from PIL import Image
 
 app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
 translator = TextTranslator()
 translation_dto = TranslationDto
 youtube_downloader = YouTubeDownloader()
-pdf_converter = PdfConverter()
 convert_file_name = ''
+user_images = {}
 
 
 @bot.message_handler(commands=['start'])
@@ -33,45 +31,65 @@ def download_video_start(message: types.Message):
                                            '/download_from_youtube - choose this command to '
                                            'download video from youtube\n'
                                            '/translate - choose this command to translate document(only .txt)\n'
-                                           '/pdf - choose this command to convert images to pdf format')
+                                           '/pdf_from_photos - choose this command to convert images to pdf format')
 
 
-@bot.message_handler(commands=["pdf"])
-def pdf_conversion(message):
+@bot.message_handler(commands=["pdf_from_photos"])
+def pdf_from_photos(message):
     bot.send_message(message.from_user.id, "Send me a set of images,\n"
-                                           "which u want to convert to pdf set...")
+                                           "which u want to convert to pdf...")
+    user_message = bot.send_message(message.from_user.id, "Upload first photo:")
+    user_images[message.from_user.id] = []
+    bot.register_next_step_handler(user_message, parse_uploaded_item)
 
 
-@bot.message_handler(content_types=["photo"])
-def add_photo(message : types.Message):
-    if len(pdf_converter.images) >= 50:
-        bot.reply_to(message, "Sorry! Only 50 images can be converted for now")
+def parse_uploaded_item(message: types.Message):
+    file_name = ''
+    if message.content_type == 'document':
+        file_name = bot.get_file(message.document.file_id).file_path
+    elif message.content_type == 'photo':
+        file_name = bot.get_file(message.photo[-1].file_id).file_path
+    elif message.content_type == 'text':
+        if message.text.lower() == 'build':
+            if len(user_images[message.from_user.id]) == 0:
+                bot.send_message(message.from_user.id, 'You haven\'t added any images. Termination.')
+                return
+
+            target = os.path.join(RESOURCES_PATH, 'documents', str(message.from_user.id) + '.pdf')
+            try:
+                converter_strategy = StrategyManager.get_strategy_for('images_to_pdf')
+                converter_strategy.convert(user_images[message.from_user.id], target)
+                with open(target, 'rb') as file:
+                    bot.send_document(message.from_user.id, file, caption='Your built pdf:')
+            except Exception as e:
+                bot.send_message(message.from_user.id, 'Oops, something went wrong! ' + str(e))
+            finally:
+                FileManager.remove(*user_images[message.from_user.id], target)
+                user_images.pop(message.from_user.id)
+                return
+        else:
+            bot.send_message(message.from_user.id, 'Build process terminated')
+            user_images.pop(message.from_user.id)
+            return
+    extension = file_name.split('.')[-1]
+
+    if not FileExtensions.is_photo(extension):
+        bot.send_message(message.from_user.id, f'Sorry, i cannot build pdf from {extension} files.'
+                                               f' Build process terminated!')
+        user_images.pop(message.from_user.id)
         return
-    download_photos(message.photo, message.from_user.id)
-    bot.reply_to(message,
-                 f"Success add image, send command /convert if finish")
 
+    url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{file_name}'
+    image_source = os.path.join(RESOURCES_PATH, file_name)
+    FileManager.download(url, image_source)
+    user_images[message.from_user.id].append(image_source)
 
-def download_photos(photos, id):
-    file_path = bot.get_file(photos[-1].file_id).file_path
-    file = bot.download_file(file_path)
-    image_to_append = Image.open(BytesIO(file))
-    dest = os.path.join(RESOURCES_PATH, str(id) + ".jpg")
-    if os.path.exists(dest):
-        existed_image = Image.open(dest)
-        new_image = Image.new('RGB', (existed_image.width, image_to_append.height + existed_image.height))
-        new_image.paste(existed_image, (0,0))
-        new_image.paste(image_to_append, (0, existed_image.height))
-        new_image.save(dest)
-    else:
-        image_to_append.save(dest)
+    format_keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
+    format_keyboard.add(types.KeyboardButton('Build'))
+    format_keyboard.add(types.KeyboardButton('Terminate'))
 
-
-@bot.message_handler(commands=["convert"])
-def finish(message):
-    path = os.path.join(RESOURCES_PATH, str(id) + ".pdf")
-    bot.send_document(message.from_user.id, open(path, "rb"), caption="From BRAWL STARS⭐️")
-    FileManager.remove(path)
+    choice = bot.send_message(message.from_user.id, 'Add photo or choose appropriate option: ', reply_markup=format_keyboard)
+    bot.register_next_step_handler(choice, parse_uploaded_item)
 
 
 @bot.message_handler(commands=['download_from_youtube'])
@@ -236,7 +254,7 @@ def confirm_dest_language(message: types.Message):
     translation_process_file(message.from_user.id)
 
 
-def translation_process_file(user_id):
+def     translation_process_file(user_id):
     try:
         url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{translation_dto.file_path}'
         target_file = os.path.join(RESOURCES_PATH, TEXT_TO_TRANSLATE)

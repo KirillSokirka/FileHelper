@@ -1,6 +1,6 @@
 from converterextensions.strategies.strategy import JpgToPngStrategy, PngToJpgStrategy, Mp4ToMp3Strategy, \
     WavToMp3Strategy, WavToRawStrategy, Mp3ToRawStrategy, Mp3ToWavStrategy, RawToMp3Strategy, RawToWavStrategy, \
-    DocxToTxtStrategy, DocxToPdfStrategy, XmlToJsonStrategy, JsonToXmlStrategy
+    DocxToTxtStrategy, DocxToPdfStrategy, XmlToJsonStrategy, JsonToXmlStrategy, ImagesToPdfStrategy
 
 
 class StrategyManager:
@@ -16,7 +16,8 @@ class StrategyManager:
                     'docx_to_txt': DocxToTxtStrategy(),
                     'docx_to_pdf': DocxToPdfStrategy(),
                     'xml_to_json': XmlToJsonStrategy(),
-                    'json_to_xml': JsonToXmlStrategy()
+                    'json_to_xml': JsonToXmlStrategy(),
+                    'images_to_pdf': ImagesToPdfStrategy()
                     }
 
     @classmethod
