@@ -5,6 +5,6 @@ from pydub import AudioSegment
 
 class WavToRawStrategy(AbstractStrategy):
     def convert(self, source: str, target: str):
-        AudioSegment.converter = 'ffmpeg\\bin\\ffmpeg.exe'
+        # AudioSegment.converter = 'ffmpeg\\bin\\ffmpeg.exe'
         wav_audio = AudioSegment.from_wav(source)
         wav_audio.export(target, format='raw')

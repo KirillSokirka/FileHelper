@@ -313,6 +313,14 @@ def webhook():
     return "Ok", 200
 
 
+def main():
+    if os.getenv('Heroku'):
+        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    else:
+        bot.remove_webhook()
+        bot.polling(none_stop=True)
+
+
 if __name__ == '__main__':
     if os.getenv('Heroku'):
         app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
