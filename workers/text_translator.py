@@ -1,10 +1,12 @@
-from configs.config import TEXT_TO_TRANSLATE, RESOURCES_PATH
+from configs.config import RESOURCES_PATH
 from converterextensions.utils.file_downloader import FileManager
 
 import os
 from googletrans import Translator, LANGUAGES
 
-
+"""
+Class that process text translating
+"""
 class TextTranslator:
 
     def __init__(self):
@@ -12,9 +14,20 @@ class TextTranslator:
 
     @staticmethod
     def check_language(language):
+        """
+            Static method for checking if inputed language is correct or not
+        :param language: language getted from user
+        :return: bool
+        """
         return LANGUAGES.get(language)
 
     def translate_file(self, dto, source):
+        """
+            Method that translates file
+        :param dto: object that contains result file path, source and dest language
+        :param source: source file
+        :return:
+        """
         ext = dto.file_path.split('.')[-1]
         filepath = dto.file_path.split('.')[-2] + '_translated_to_' + dto.destination_language + "." + ext
         target = os.path.join(RESOURCES_PATH, filepath)

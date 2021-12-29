@@ -1,7 +1,11 @@
 from pytube import YouTube
 import os
 
+"""
+    Class that responsible for downloading file from youtube
+"""
 class YouTubeDownloader:
+
     def __init__(self, url='', format='video', resolution=''):
         self.url = url
         self.format = format

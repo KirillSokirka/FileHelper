@@ -137,26 +137,40 @@ def download_from_youtube(message: types.Message):
 
 @bot.message_handler(commands=['translate'])
 def translate_file(message: types.Message):
+    """
+        Init translation process
+    :param message: telebot message
+    """
     bot.send_message(message.from_user.id, 'Upload file to translate')
     bot.register_next_step_handler(message, translation_get_filepath)
 
 
 def translation_get_filepath(message: types.Message):
+    """
+        Get file from user
+    :param message: telebot message
+    :return: None
+    """
     if message.content_type != 'document':
         bot.send_message(message.from_user.id, 'You should upload only files')
         bot.register_next_step_handler(message, translate_file)
-        return
+        return None
     translation_dto.init_name = message.text
     temp = bot.get_file(message.document.file_id).file_path
-    if not temp.lower().endswith('.txt'):
+    extension = os.path.splitext(temp)[1]
+    if extension not in ['.txt', '.pdf', '.docx']:
         bot.send_message(message.from_user.id, 'File\'s format isn\'t correct')
         bot.register_next_step_handler(message, translate_file)
-        return
+        return None
     translation_dto.file_path = temp
     choose_source_language(message.from_user.id)
 
 
 def choose_source_language(id):
+    """
+        Method for start getting source language from user
+    :param id: user chat id
+    """
     keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
     keyboard.add(
         types.KeyboardButton('Choose'),
@@ -168,10 +182,15 @@ def choose_source_language(id):
 
 
 def confirm_source_language(answer: types.Message):
+    """
+        Method for confirming chosen source language
+    :param answer: message from user
+    :return: None
+    """
     if answer.text not in ['Choose', 'Skip']:
         bot.send_message(answer.from_user.id, 'Sorry, I don\'t understand, try again')
         bot.register_next_step_handler(answer, choose_source_language)
-        return
+        return None
     if answer.text == 'Skip':
         translation_dto.source_language = None
         choose_dest_language(answer)
@@ -181,30 +200,44 @@ def confirm_source_language(answer: types.Message):
 
 
 def get_source_lan_from_user(message: types.Message):
+    """
+    Method for getting source language from user
+    :param message: telegram message
+    :return: None
+    """
     if not TextTranslator.check_language(message.text):
         bot.send_message(message.from_user.id, "This language isn\'t available")
         bot.register_next_step_handler(message, choose_source_language)
-        return
+        return None
     translation_dto.source_language = message.text
     choose_dest_language(message)
 
 
 def choose_dest_language(message: types.Message):
-    dest_lan = bot.send_message(message.from_user.id, 'Enter a dest language (in this format \'en\')')
+    """
+    Method for start getting dest language
+    :param message:
+    """
+    bot.send_message(message.from_user.id, 'Enter a dest language (in this format \'en\')')
     bot.register_next_step_handler(message, confirm_dest_language)
-    pass
 
 
 def confirm_dest_language(message: types.Message):
+    """
+    Method for confirming dest language
+    :param message: telegram message
+    :return: None
+    """
     if not translator.check_language(message.text):
         bot.send_message(message.from_user.id, "This language isn\'t available")
         bot.register_next_step_handler(message, choose_dest_language)
-        return
+        return None
     translation_dto.destination_language = message.text
     translation_process_file(message.from_user.id)
 
 
 def translation_process_file(user_id):
+
     url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{translation_dto.file_path}'
     target_file = os.path.join(RESOURCES_PATH, TEXT_TO_TRANSLATE)
     FileManager.download(url, target_file)
@@ -297,8 +330,4 @@ def main():
 
 
 if __name__ == '__main__':
-    if os.getenv('Heroku'):
-        app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-    else:
-        bot.remove_webhook()
-        bot.polling(none_stop=True)
+    main()
