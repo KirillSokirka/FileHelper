@@ -1,4 +1,5 @@
 import pypandoc
+import subprocess
 
 from PIL import Image
 from docx2pdf import convert
@@ -18,7 +19,12 @@ class AbstractStrategy:
 
 class DocxToPdfStrategy(AbstractStrategy):
     def convert(self, source: str, target: str):
-        convert(source, target)
+        cmd = 'libreoffice --convert-to pdf'.split() + [source]
+        p = subprocess.Popen(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE)
+        p.wait(timeout=10)
+        stdout, stderr = p.communicate()
+        if stderr:
+            raise subprocess.SubprocessError(stderr)
 
 
 class DocxToTxtStrategy(AbstractStrategy):
