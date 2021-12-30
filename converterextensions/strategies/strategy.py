@@ -104,7 +104,8 @@ class XmlToJsonStrategy(AbstractStrategy):
         dict_data = ''
         with open(source, 'r') as source_file:
             dict_data = parse(source_file.read())
-        dump(dict_data, target, indent=4)
+        with open(target, "w") as target_file:
+            dump(dict_data, target_file, indent=4)
 
 
 class ImagesToPdfStrategy(AbstractStrategy):
