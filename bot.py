@@ -1,18 +1,17 @@
-import requests
+import os
+
+from flask import request, Flask
+from telebot import TeleBot, types
 
 from configs.config import BOT_TOKEN, TEXT_TO_TRANSLATE, RESOURCES_PATH, APP_URL
 from converterextensions.strategies.manager import StrategyManager
 from converterextensions.utils.file_downloader import FileManager
 from converterextensions.utils.file_extension import FileExtensions
 from converterextensions.workers.converter import ExtendedConverter
+from dtos.translation_dto import TranslationDto
 from dtos.youtube_dto import YouTubeDTO
 from workers.text_translator import TextTranslator
-from dtos.translation_dto import TranslationDto
 from workers.youtube_downloader import YouTubeDownloader
-
-import os
-from telebot import TeleBot, types
-from flask import request, Flask
 
 app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
@@ -90,7 +89,8 @@ def parse_uploaded_item(message: types.Message):
     format_keyboard.add(types.KeyboardButton('Build'))
     format_keyboard.add(types.KeyboardButton('Terminate'))
 
-    choice = bot.send_message(message.from_user.id, 'Add photo or choose appropriate option: ', reply_markup=format_keyboard)
+    choice = bot.send_message(message.from_user.id, 'Add photo or choose appropriate option: ',
+                              reply_markup=format_keyboard)
     bot.register_next_step_handler(choice, parse_uploaded_item)
 
 
@@ -275,7 +275,7 @@ def get_source_lan_from_user(message: types.Message):
 def choose_dest_language(message: types.Message):
     """
     Method for start getting dest language
-    :param message:
+    :param message: telegram message
     """
     bot.send_message(message.from_user.id, 'Enter a dest language (in this format \'en\')')
     bot.register_next_step_handler(message, confirm_dest_language)
@@ -295,7 +295,7 @@ def confirm_dest_language(message: types.Message):
     translation_process_file(message.from_user.id)
 
 
-def     translation_process_file(user_id):
+def translation_process_file(user_id):
     try:
         url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{translation_dto.file_path}'
         target_file = os.path.join(RESOURCES_PATH, TEXT_TO_TRANSLATE)
@@ -303,12 +303,19 @@ def     translation_process_file(user_id):
         result_filepath = translator.translate_file(translation_dto, target_file)
         with open(result_filepath, 'r') as file:
             bot.send_document(user_id, file)
+            FileManager.remove(result_filepath)
     except Exception as e:
         bot.send_message(user_id, "Oops something went wrong")
 
 
 @bot.message_handler(commands=['convert_files'])
 def convert_files(message: types.Message):
+    """
+    Method for starting file converting process
+    :param message: telegram message
+    :return: None
+    """
+
     supported_extensions = ', '.join(FileExtensions.get_supported_extensions())
     bot.send_message(message.from_user.id,
                      f'Upload file to convert. Supported input extensions: {supported_extensions}')
@@ -316,6 +323,12 @@ def convert_files(message: types.Message):
 
 
 def validate_file(message: types.Message):
+    """
+    Method that validates user's file and proceeds converting process
+    :param message: telegram message
+    :return: None
+    """
+
     file_name = ''
     if message.content_type == 'document':
         file_name = bot.get_file(message.document.file_id).file_path
@@ -341,6 +354,12 @@ def validate_file(message: types.Message):
 
 
 def confirm_converting_format(message):
+    """
+    Method that ends converting process and sends converted file to user
+    :param message: telegram message
+    :return: None
+    """
+
     from_extension = convert_file_name.split('.')[-1]
     to_extension = message.text.lower()
     if to_extension in FileExtensions.get_possible_conversion_for(from_extension):

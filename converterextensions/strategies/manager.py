@@ -4,6 +4,11 @@ from converterextensions.strategies.strategy import JpgToPngStrategy, PngToJpgSt
 
 
 class StrategyManager:
+    """
+    Class to represent strategy manager entity
+
+    """
+
     __strategies = {'jpg_to_png': JpgToPngStrategy(),
                     'png_to_jpg': PngToJpgStrategy(),
                     'mp4_to_mp3': Mp4ToMp3Strategy(),
