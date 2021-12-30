@@ -5,6 +5,7 @@ from converterextensions.strategies.manager import StrategyManager
 from converterextensions.utils.file_downloader import FileManager
 from converterextensions.utils.file_extension import FileExtensions
 from converterextensions.workers.converter import ExtendedConverter
+from dtos.youtube_dto import YouTubeDTO
 from workers.text_translator import TextTranslator
 from dtos.translation_dto import TranslationDto
 from workers.youtube_downloader import YouTubeDownloader
@@ -17,6 +18,7 @@ app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
 translator = TextTranslator()
 translation_dto = TranslationDto
+youtube_dto = YouTubeDTO()
 youtube_downloader = YouTubeDownloader()
 convert_file_name = ''
 user_images = {}
@@ -99,7 +101,7 @@ def download_video_start(message: types.Message):
 
 @bot.message_handler(regexp='^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$')
 def get_youtube_link(message: types.Message):
-    youtube_downloader.url = message.text
+    youtube_dto.url = message.text
     choose_format(message)
 
 
@@ -115,7 +117,7 @@ def confirm_format(message: types.Message):
         bot.send_message(message.from_user.id, 'Incorrect input!')
         bot.register_next_step_handler(message, choose_format)
         return
-    youtube_downloader.format = message.text.lower()
+    youtube_dto.format = message.text.lower()
     if message.text.lower() == 'video':
         choose_resolution(message)
     else:
@@ -134,7 +136,7 @@ def confirm_resolution(message: types.Message):
         bot.send_message(message.from_user.id, 'Incorrect input!')
         bot.register_next_step_handler(message, choose_resolution)
         return
-    youtube_downloader.resolution = message.text.lower()
+    youtube_dto.resolution = message.text.lower()
     download_from_youtube(message)
 
 
@@ -142,7 +144,7 @@ def download_from_youtube(message: types.Message):
     bot.send_message(message.from_user.id, 'Downloading...')
     file_path = ''
     try:
-        file_path = youtube_downloader.download()
+        file_path = youtube_downloader.download(youtube_dto)
     except ValueError:
         bot.send_message(message.from_user.id, 'Something went wrong! Check if URL is correct')
     except OSError:

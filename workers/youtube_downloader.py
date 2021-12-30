@@ -1,67 +1,31 @@
 from pytube import YouTube
 import os
 
-"""
-    Class that responsible for downloading file from youtube
-"""
+
 class YouTubeDownloader:
-
-    def __init__(self, url='', format='video', resolution=''):
-        self.url = url
-        self.format = format
-        self.resolution = resolution
-
-    @property
-    def url(self):
-        return self.__url
-
-    @url.setter
-    def url(self, value):
-        if not isinstance(value, str):
-            raise TypeError
-        self.__url = value
-
-    @property
-    def format(self):
-        return self.__format
-
-    @format.setter
-    def format(self, value):
-        if not isinstance(value, str):
-            raise TypeError
-        self.__format = value
-
-    @property
-    def resolution(self):
-        return self.__resolution
-
-    @resolution.setter
-    def resolution(self, value):
-        if not isinstance(value, str):
-            raise TypeError
-        self.__resolution = value
-
-    def check_url(self):
+    @staticmethod
+    def check_url(yt_dto):
         try:
-            YouTube(self.url).check_availability()
+            YouTube(yt_dto.url).check_availability()
         except:
             return False
         return True
 
-    def download(self):
-        if not self.check_url():
+    @classmethod
+    def download(cls, yt_dto):
+        if not cls.check_url(yt_dto):
             raise ValueError
-        yt = YouTube(self.url)
-        if self.format == 'audio':
+        yt = YouTube(yt_dto.url)
+        if yt_dto.format == 'audio':
             video = yt.streams.filter(only_audio=True).first()
         else:
-            if self.resolution == 'high':
+            if yt_dto.resolution == 'high':
                 video = yt.streams.get_highest_resolution()
             else:
                 video = yt.streams.get_lowest_resolution()
         video.download()
         file_name = video.default_filename
-        if self.format == 'audio':
+        if yt_dto.format == 'audio':
             base, ext = os.path.splitext(file_name)
             new_name = base + '.mp3'
             os.rename(file_name, new_name)
