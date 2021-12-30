@@ -1,18 +1,17 @@
-import requests
+import os
+
+from flask import request, Flask
+from telebot import TeleBot, types
 
 from configs.config import BOT_TOKEN, TEXT_TO_TRANSLATE, RESOURCES_PATH, APP_URL
 from converterextensions.strategies.manager import StrategyManager
 from converterextensions.utils.file_downloader import FileManager
 from converterextensions.utils.file_extension import FileExtensions
 from converterextensions.workers.converter import ExtendedConverter
+from dtos.translation_dto import TranslationDto
 from dtos.youtube_dto import YouTubeDTO
 from workers.text_translator import TextTranslator
-from dtos.translation_dto import TranslationDto
 from workers.youtube_downloader import YouTubeDownloader
-
-import os
-from telebot import TeleBot, types
-from flask import request, Flask
 
 app = Flask(__name__)
 bot = TeleBot(BOT_TOKEN)
@@ -90,7 +89,8 @@ def parse_uploaded_item(message: types.Message):
     format_keyboard.add(types.KeyboardButton('Build'))
     format_keyboard.add(types.KeyboardButton('Terminate'))
 
-    choice = bot.send_message(message.from_user.id, 'Add photo or choose appropriate option: ', reply_markup=format_keyboard)
+    choice = bot.send_message(message.from_user.id, 'Add photo or choose appropriate option: ',
+                              reply_markup=format_keyboard)
     bot.register_next_step_handler(choice, parse_uploaded_item)
 
 
@@ -295,7 +295,7 @@ def confirm_dest_language(message: types.Message):
     translation_process_file(message.from_user.id)
 
 
-def     translation_process_file(user_id):
+def translation_process_file(user_id):
     try:
         url = f'https://api.telegram.org/file/bot{BOT_TOKEN}/{translation_dto.file_path}'
         target_file = os.path.join(RESOURCES_PATH, TEXT_TO_TRANSLATE)
@@ -303,6 +303,7 @@ def     translation_process_file(user_id):
         result_filepath = translator.translate_file(translation_dto, target_file)
         with open(result_filepath, 'r') as file:
             bot.send_document(user_id, file)
+            FileManager.remove(result_filepath)
     except Exception as e:
         bot.send_message(user_id, "Oops something went wrong")
 
