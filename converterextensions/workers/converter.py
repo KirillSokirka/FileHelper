@@ -4,6 +4,13 @@ from converterextensions.strategies.manager import StrategyManager
 
 
 class ExtendedConverter:
+    """
+    Class to represent extended converter entity
+    :param source_file_name: source file name
+    :param target_file_name: target file name
+
+    """
+
     def __init__(self, source_file_name, target_file_name):
         self.source_file_name = source_file_name
         self.target_file_name = target_file_name
