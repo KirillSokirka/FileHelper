@@ -96,16 +96,31 @@ def parse_uploaded_item(message: types.Message):
 
 @bot.message_handler(commands=['download_from_youtube'])
 def download_video_start(message: types.Message):
+    """
+    Handles /download_from_youtube command
+
+    :param message: telebot message
+    """
     bot.send_message(message.from_user.id, 'Enter video URL')
 
 
 @bot.message_handler(regexp='^(https?\:\/\/)?(www\.youtube\.com|youtu\.?be)\/.+$')
 def get_youtube_link(message: types.Message):
+    """
+    Handles message that contains string matching url regex
+
+    :param message: telebot message
+    """
     youtube_dto.url = message.text
     choose_format(message)
 
 
 def choose_format(message: types.Message):
+    """
+    Method that manages the process of choosing type of downloading file by user
+
+    :param message: telebot message
+    """
     format_keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
     format_keyboard.add(types.KeyboardButton('Video'), types.KeyboardButton('Audio'))
     choice = bot.send_message(message.from_user.id, 'Choose type of downloaded file: ', reply_markup=format_keyboard)
@@ -113,6 +128,11 @@ def choose_format(message: types.Message):
 
 
 def confirm_format(message: types.Message):
+    """
+    Method that confirms user choice of file type
+
+    :param message: telebot message
+    """
     if message.text.lower() not in ('video', 'audio'):
         bot.send_message(message.from_user.id, 'Incorrect input!')
         bot.register_next_step_handler(message, choose_format)
@@ -125,6 +145,11 @@ def confirm_format(message: types.Message):
 
 
 def choose_resolution(message: types.Message):
+    """
+    Method that manages the process of choosing video resolution by user
+
+    :param message: telebot message
+    """
     resolution_keyboard = types.ReplyKeyboardMarkup(one_time_keyboard=True, row_width=1, resize_keyboard=True)
     resolution_keyboard.add(types.KeyboardButton('High'), types.KeyboardButton('Low'))
     choice = bot.send_message(message.from_user.id, 'Choose quality: ', reply_markup=resolution_keyboard)
@@ -132,6 +157,11 @@ def choose_resolution(message: types.Message):
 
 
 def confirm_resolution(message: types.Message):
+    """
+    Method that confirms user choice of video resolution
+
+    :param message: telebot message
+    """
     if message.text.lower() not in ('high', 'low'):
         bot.send_message(message.from_user.id, 'Incorrect input!')
         bot.register_next_step_handler(message, choose_resolution)
@@ -141,6 +171,15 @@ def confirm_resolution(message: types.Message):
 
 
 def download_from_youtube(message: types.Message):
+    """
+    Method that manages the process of video downloading
+
+    :param message: telebot message
+    :raises ValueError
+            if url is invalid
+        :raises OSError
+            if file is too large
+    """
     bot.send_message(message.from_user.id, 'Downloading...')
     file_path = ''
     try:

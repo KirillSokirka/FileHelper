@@ -1,5 +1,10 @@
 class YouTubeDTO:
+    """
+    Class used as a container to encapsulate data
+    connected with YouTube downloader part
+    """
     def __init__(self, url='', format='video', resolution=''):
+
         self.url = url
         self.format = format
         self.resolution = resolution
